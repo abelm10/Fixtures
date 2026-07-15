@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fixtures — live sports, no fluff</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0a0d; --bg-raised:#111116; --purple:#a855f7; --purple-bright:#c084fc; --purple-deep:#7c3aed; --pink:#e879f9;
+    --card:#111116; --border:#22222a; --border-hover:#3a2a52; --text:#e6e6ea; --text-dim:#8b8b96; --text-faint:#55555f;
+    --live:#f85149; --green:#3fb950; --amber:#d29922; --ufc:#fb923c;
+    --mx: 50vw; --my: 25vh; --ox: 0px; --oy: 0px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{ background:var(--bg); color:var(--text); min-height:100vh; overflow-x:hidden;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif,"Apple Color Emoji","Segoe UI Emoji"; }
+  .mono{ font-family:'JetBrains Mono', ui-monospace, SFMono-Regular, Consolas, monospace; }
+
+  /* subtle graph-paper texture instead of glossy AI-blob orbs */
+  .bg-grid{ position:fixed; inset:0; z-index:0; pointer-events:none;
+    background-image: linear-gradient(rgba(168,85,247,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(168,85,247,0.05) 1px, transparent 1px);
+    background-size: 42px 42px;
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, black 40%, transparent 90%);
+  }
+  .bg-grid-glow{ position:fixed; inset:0; z-index:0; pointer-events:none;
+    background-image: linear-gradient(rgba(192,132,252,0.55) 1px, transparent 1px), linear-gradient(90deg, rgba(192,132,252,0.55) 1px, transparent 1px);
+    background-size: 42px 42px;
+    -webkit-mask-image: radial-gradient(circle 220px at var(--mx) var(--my), black 0%, transparent 100%);
+    mask-image: radial-gradient(circle 220px at var(--mx) var(--my), black 0%, transparent 100%);
+  }
+  .bg-orb{ position:fixed; z-index:0; pointer-events:none; width:480px; height:480px; border-radius:50%;
+    background:radial-gradient(circle, rgba(124,58,237,0.16), transparent 70%); top:-200px; right:-120px; filter:blur(20px);
+    transform: translate(var(--ox), var(--oy)); will-change: transform; }
+
+  .wrap{ position:relative; z-index:2; max-width:1180px; margin:0 auto; padding:0 20px 80px; }
+
+  /* ---------- Top bar ---------- */
+  .topbar{ border-bottom:1px solid var(--border); margin-bottom:22px; }
+  header{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px; padding:18px 0; }
+  .logo{ display:flex; align-items:center; gap:10px; cursor:pointer; user-select:none; }
+  .logo-prompt{ font-family:'JetBrains Mono',monospace; font-weight:600; font-size:19px; color:var(--text); display:flex; align-items:center; gap:2px; }
+  .logo-prompt .cursor{ display:inline-block; width:9px; height:18px; background:var(--purple-bright); margin-left:4px; animation: caret 1s steps(1) infinite; }
+  @keyframes caret{ 50%{ opacity:0; } }
+
+  .nav-tabs{ display:flex; gap:2px; background:var(--bg-raised); padding:3px; border-radius:8px; border:1px solid var(--border); }
+  .tab-btn{ background:transparent; border:none; color:var(--text-dim); font-family:inherit; font-weight:600; font-size:13px;
+    padding:7px 14px; border-radius:6px; cursor:pointer; transition:all .15s; }
+  .tab-btn.active{ background:var(--purple-deep); color:#fff; }
+  .tab-btn:hover:not(.active){ color:var(--text); background:rgba(255,255,255,0.04); }
+
+  .header-actions{ display:flex; gap:8px; align-items:center; }
+  #adminBtn, #refreshBtn, #asciiBtn, #cmdkBtn{ display:flex; align-items:center; gap:7px; background:var(--bg-raised); border:1px solid var(--border);
+    color:var(--text-dim); font-family:'JetBrains Mono',monospace; font-weight:600; font-size:12.5px; padding:8px 14px; border-radius:8px; cursor:pointer; transition:.15s; }
+  #adminBtn:hover, #refreshBtn:hover, #asciiBtn:hover, #cmdkBtn:hover{ border-color:var(--border-hover); color:var(--text); }
+  #adminBtn.on{ background:rgba(248,81,73,0.12); border-color:rgba(248,81,73,0.5); color:#ffb4ae; }
+  #asciiBtn.on{ background:rgba(63,185,80,0.12); border-color:rgba(63,185,80,0.5); color:#7ee787; }
+  #refreshBtn.spinning .spin-icon{ display:inline-block; animation:spin 0.7s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg);} }
+
+  /* ---------- Command palette ---------- */
+  .cmdk-overlay{ position:fixed; inset:0; background:rgba(4,4,6,0.7); backdrop-filter:blur(2px); z-index:100; display:none; align-items:flex-start; justify-content:center; padding-top:12vh; }
+  .cmdk-overlay.show{ display:flex; }
+  .cmdk-box{ width:92%; max-width:560px; background:var(--bg-raised); border:1px solid var(--border-hover); border-radius:12px; box-shadow:0 24px 70px rgba(0,0,0,0.6); overflow:hidden; animation: cmdkIn .15s ease; }
+  @keyframes cmdkIn{ from{ transform:translateY(-8px) scale(0.98); opacity:0;} to{ transform:translateY(0) scale(1); opacity:1;} }
+  .cmdk-input-row{ display:flex; align-items:center; gap:10px; padding:14px 16px; border-bottom:1px solid var(--border); }
+  .cmdk-prompt{ color:var(--purple-bright); font-family:'JetBrains Mono',monospace; font-weight:700; }
+  .cmdk-input-row input{ flex:1; background:transparent; border:none; outline:none; color:var(--text); font-family:'JetBrains Mono',monospace; font-size:14px; }
+  .cmdk-hints{ padding:8px; max-height:280px; overflow-y:auto; }
+  .cmdk-hint{ font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--text-dim); padding:8px 10px; border-radius:6px; cursor:pointer; display:flex; justify-content:space-between; gap:10px; }
+  .cmdk-hint:hover{ background:rgba(168,85,247,0.12); color:var(--text); }
+  .cmdk-hint .tag{ color:var(--text-faint); font-size:11px; white-space:nowrap; }
+  .cmdk-footer{ padding:8px 14px; border-top:1px solid var(--border); font-size:10.5px; color:var(--text-faint); font-family:'JetBrains Mono',monospace; }
+
+  /* ---------- Goal / lap flash ---------- */
+  @keyframes flashBorder{ 0%{ box-shadow:0 0 0 2px rgba(63,185,80,0.85); border-color:var(--green);} 100%{ box-shadow:0 0 0 0 rgba(63,185,80,0); border-color:var(--border);} }
+  .card.flash{ animation: flashBorder 1.4s ease-out; }
+  @keyframes bouncePop{ 0%{ transform:scale(1);} 30%{ transform:scale(1.4);} 55%{ transform:scale(0.9);} 100%{ transform:scale(1);} }
+  .bounce{ animation: bouncePop 0.6s ease; }
+  .score-row .score.bounce{ display:inline-block; }
+
+  /* ---------- ASCII mode ---------- */
+  .ascii-pre{ font-family:'JetBrains Mono',monospace; font-size:11px; line-height:1.6; color:var(--text-dim);
+    background:#0c0c10; border:1px solid var(--border); border-radius:6px; padding:8px 6px; margin-bottom:11px; overflow-x:auto; white-space:pre; }
+  .ascii-pre .hl{ color:#fff; font-weight:700; }
+  .ascii-live-blink{ animation: blink 1s steps(1) infinite; color:var(--live); font-weight:700; }
+
+  /* ---------- Globe search button ---------- */
+  .globe-btn{ background:transparent; border:1px solid var(--border); color:var(--text-faint); border-radius:50%;
+    width:22px; height:22px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; transition:.15s; padding:0; }
+  .globe-btn:hover{ border-color:var(--purple); color:var(--purple-bright); transform:rotate(15deg); }
+
+  /* ---------- Search ---------- */
+  .search-row{ margin-bottom:18px; }
+  .search-box{ position:relative; max-width:420px; }
+  .search-box input{ width:100%; background:var(--bg-raised); border:1px solid var(--border); color:var(--text);
+    font-family:inherit; font-size:13.5px; padding:9px 40px 9px 34px; border-radius:8px; outline:none; transition:border-color .15s, box-shadow .15s; }
+  .search-box input::placeholder{ color:var(--text-faint); }
+  .search-box input:focus{ border-color:var(--purple); box-shadow:0 0 0 3px rgba(168,85,247,0.15); }
+  .search-icon{ position:absolute; left:11px; top:50%; transform:translateY(-50%); color:var(--text-faint); pointer-events:none; }
+  .search-kbd{ position:absolute; right:8px; top:50%; transform:translateY(-50%); font-family:'JetBrains Mono',monospace; font-size:11px;
+    color:var(--text-faint); border:1px solid var(--border); border-radius:5px; padding:1px 6px; pointer-events:none; }
+  .search-box input:focus ~ .search-kbd{ display:none; }
+  .search-clear{ display:none; }
+
+  /* ---------- Status ---------- */
+  .status-bar{ display:flex; align-items:center; gap:10px; font-size:12px; color:var(--text-dim); margin-bottom:18px; flex-wrap:wrap; font-family:'JetBrains Mono',monospace; }
+  .status-dot{ width:7px; height:7px; border-radius:50%; background:var(--green); box-shadow:0 0 6px var(--green); flex-shrink:0; }
+  .status-dot.err{ background:var(--live); box-shadow:0 0 6px var(--live); }
+  .status-dot.loading{ background:var(--amber); box-shadow:0 0 6px var(--amber); animation:blink 1s infinite; }
+  @keyframes blink{ 50%{ opacity:0.3; } }
+  .boot-line{ font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--purple-bright); margin-bottom:10px; min-height:16px; }
+  .boot-line .cursor{ display:inline-block; width:7px; height:13px; background:var(--purple-bright); margin-left:2px; vertical-align:-2px; animation:caret 0.9s steps(1) infinite; }
+
+  .error-banner{ display:none; background:rgba(248,81,73,0.08); border:1px solid rgba(248,81,73,0.35); color:#ffb4ae;
+    padding:13px 16px; border-radius:10px; font-size:12.5px; margin-bottom:20px; line-height:1.6; font-family:'JetBrains Mono',monospace; }
+  .error-banner.show{ display:block; }
+  .error-banner code{ background:rgba(0,0,0,0.35); padding:2px 6px; border-radius:4px; }
+  .error-banner.info{ background:rgba(210,153,34,0.08); border-color:rgba(210,153,34,0.4); color:#f2d17b; }
+  .error-banner .copy-btn{ display:inline-block; margin-top:8px; background:rgba(0,0,0,0.35); border:1px solid var(--border-hover); color:var(--text);
+    font-family:'JetBrains Mono',monospace; font-size:11.5px; padding:5px 10px; border-radius:6px; cursor:pointer; }
+  .error-banner .copy-btn:hover{ border-color:var(--purple); }
+
+  /* ---------- Hero ---------- */
+  .hero{ position:relative; border-radius:12px; padding:26px 24px; margin-bottom:30px; background:var(--card);
+    border:1px solid var(--border); overflow:hidden; min-height:110px; }
+  .hero::before{ content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:linear-gradient(180deg,var(--purple-bright),var(--pink)); }
+  .hero-label{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--purple-bright); font-weight:600; margin-bottom:10px; display:flex; align-items:center; gap:7px;}
+  .dot-live{ width:8px; height:8px; border-radius:50%; background:var(--live); position:relative; flex-shrink:0; }
+  .dot-live::before{ content:''; position:absolute; inset:-5px; border-radius:50%; border:1px solid var(--live); animation:ping 1.6s cubic-bezier(0,0,0.2,1) infinite; }
+  @keyframes ping{ 0%{ transform:scale(0.6); opacity:0.9; } 100%{ transform:scale(2.6); opacity:0; } }
+  .hero-title{ font-family:'JetBrains Mono',monospace; font-size:clamp(17px,3.2vw,25px); font-weight:700; margin-bottom:4px; letter-spacing:-0.3px; }
+  .hero-sub{ font-family:'JetBrains Mono',monospace; color:var(--text-dim); font-size:12.5px; margin-bottom:20px; }
+  .countdown-row{ display:flex; gap:10px; flex-wrap:wrap; }
+  .cbox{ background:var(--bg-raised); border:1px solid var(--border); border-radius:8px; padding:12px 18px; min-width:74px; text-align:center; transition:border-color .2s;}
+  .cbox .num{ font-family:'JetBrains Mono',monospace; font-size:clamp(22px,3.6vw,32px); font-weight:700; color:#fff; }
+  .cbox .lbl{ font-size:9.5px; letter-spacing:1.3px; color:var(--text-faint); text-transform:uppercase; margin-top:3px; font-family:'JetBrains Mono',monospace; }
+  .live-banner{ display:inline-flex; align-items:center; gap:9px; background:rgba(248,81,73,0.1); border:1px solid rgba(248,81,73,0.35);
+    padding:11px 18px; border-radius:8px; font-weight:700; font-size:17px; font-family:'JetBrains Mono',monospace; }
+  .skeleton{ height:14px; background:var(--bg-raised); border-radius:5px; overflow:hidden; position:relative; }
+  .skeleton::after{ content:""; position:absolute; inset:0; background:linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent); animation:shimmer 1.3s infinite; }
+  @keyframes shimmer{ from{ transform:translateX(-100%);} to{ transform:translateX(100%);} }
+
+  /* ---------- Sections ---------- */
+  .section-head{ display:flex; align-items:center; justify-content:space-between; margin:34px 0 14px; }
+  .section-head h2{ font-size:13px; font-weight:700; display:flex; align-items:center; gap:7px; text-transform:uppercase; letter-spacing:0.6px; color:var(--text-dim); font-family:'JetBrains Mono',monospace; }
+  .section-head .count{ font-size:11.5px; color:var(--text-faint); font-family:'JetBrains Mono',monospace; }
+
+  .rail{ display:flex; gap:14px; overflow-x:auto; padding-bottom:10px; scrollbar-width:thin; }
+  .rail::-webkit-scrollbar{ height:5px; }
+  .rail::-webkit-scrollbar-thumb{ background:var(--purple-deep); border-radius:10px; }
+  .feat-card{ min-width:240px; background:var(--card); border:1px solid var(--border-hover);
+    border-radius:10px; padding:16px; position:relative; flex-shrink:0; transition:transform .2s, box-shadow .2s; }
+  .feat-card::before{ content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--purple-bright); border-top-left-radius:10px; border-bottom-left-radius:10px; }
+  .feat-card:hover{ transform:translateY(-3px); box-shadow:0 10px 24px rgba(124,58,237,0.18); }
+  .feat-card .pin-star{ position:absolute; top:12px; right:13px; color:var(--purple-bright); font-size:13px; }
+
+  /* ---------- Grid / cards ---------- */
+  .grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(272px,1fr)); gap:14px; }
+  .card{ background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px; position:relative;
+    transition:transform .18s, border-color .18s, box-shadow .18s; animation: rise .4s ease both; overflow:hidden; }
+  .card::before{ content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--border); transition:background .18s; }
+  .card.sport-football::before{ background:var(--green); }
+  .card.sport-f1::before{ background:var(--pink); }
+  .card.sport-ufc::before{ background:var(--ufc); }
+  .card:hover{ transform:translateY(-2px); border-color:var(--border-hover); box-shadow:0 8px 22px rgba(0,0,0,0.35); }
+  @keyframes rise{ from{ opacity:0; transform:translateY(8px);} to{ opacity:1; transform:translateY(0);} }
+  .card.offseason{ opacity:0.55; }
+  .card mark{ background:rgba(168,85,247,0.35); color:#fff; border-radius:2px; padding:0 1px; }
+
+  .card-top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:11px; }
+  .badge{ font-size:10.5px; font-weight:600; padding:3px 9px; border-radius:14px; letter-spacing:0.3px; font-family:'JetBrains Mono',monospace; border:1px solid var(--border); color:var(--text-dim); }
+  .badge.football{ color:var(--green); border-color:rgba(63,185,80,0.35); background:rgba(63,185,80,0.08); }
+  .badge.f1{ color:var(--pink); border-color:rgba(232,121,249,0.35); background:rgba(232,121,249,0.08); }
+  .badge.ufc{ color:var(--ufc); border-color:rgba(251,146,60,0.4); background:rgba(251,146,60,0.1); }
+  .badge.live{ color:var(--live); border-color:rgba(248,81,73,0.4); background:rgba(248,81,73,0.1); display:flex; align-items:center; gap:6px; }
+  .badge.finished{ color:var(--text-faint); }
+
+  .matchup{ display:flex; align-items:center; gap:9px; margin-bottom:6px; }
+  .avatar{ width:30px; height:30px; border-radius:6px; display:flex; align-items:center; justify-content:center;
+    font-weight:700; font-size:10px; color:var(--text); background:var(--bg-raised); border:1px solid var(--border); flex-shrink:0; font-family:'JetBrains Mono',monospace; }
+  .teams{ font-weight:600; font-size:14.5px; line-height:1.3; }
+  .comp{ font-size:11.5px; color:var(--text-faint); margin-bottom:13px; font-family:'JetBrains Mono',monospace; }
+
+  .card-countdown{ display:flex; gap:5px; margin-bottom:11px; }
+  .mini-box{ flex:1; background:var(--bg-raised); border:1px solid var(--border); border-radius:6px; padding:7px 4px; text-align:center; }
+  .mini-box .num{ font-weight:700; font-size:15px; font-family:'JetBrains Mono',monospace; }
+  .mini-box .lbl{ font-size:8.5px; color:var(--text-faint); text-transform:uppercase; letter-spacing:0.8px; font-family:'JetBrains Mono',monospace; }
+
+  .score-row{ display:flex; align-items:center; justify-content:space-between; background:rgba(248,81,73,0.06); border:1px solid rgba(248,81,73,0.25); border-radius:8px; padding:9px 11px; margin-bottom:11px; }
+  .score-row .score{ font-size:20px; font-weight:700; letter-spacing:0.5px; font-family:'JetBrains Mono',monospace; }
+  .score-row .meta{ font-size:11px; color:var(--text-dim); font-family:'JetBrains Mono',monospace; }
+
+  .card-foot{ display:flex; align-items:center; justify-content:space-between; font-size:11px; color:var(--text-faint); font-family:'JetBrains Mono',monospace; }
+  .pin-btn{ background:var(--bg-raised); border:1px solid var(--border); color:var(--text-dim);
+    border-radius:6px; padding:5px 9px; cursor:pointer; font-size:12px; transition:.15s; display:none; font-family:'JetBrains Mono',monospace; }
+  .pin-btn.show{ display:inline-flex; align-items:center; gap:5px; }
+  .pin-btn.pinned{ background:rgba(168,85,247,0.15); color:var(--purple-bright); border-color:rgba(168,85,247,0.4); }
+  .pin-btn:hover{ border-color:var(--border-hover); }
+  .static-pin{ font-size:10.5px; color:var(--purple-bright); display:flex; align-items:center; gap:4px; font-family:'JetBrains Mono',monospace; }
+  .finished-result{ font-size:13px; color:var(--text-dim); font-family:'JetBrains Mono',monospace; }
+
+  .empty-state{ color:var(--text-faint); font-size:12.5px; padding:16px; text-align:center; border:1px dashed var(--border); border-radius:10px; font-family:'JetBrains Mono',monospace; }
+
+  footer{ text-align:center; margin-top:56px; color:var(--text-faint); font-size:11.5px; line-height:1.9; font-family:'JetBrains Mono',monospace; border-top:1px solid var(--border); padding-top:22px; }
+  footer a{ color:var(--purple-bright); text-decoration:none; }
+  footer a:hover{ text-decoration:underline; }
+
+  .toast{ position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(16px); opacity:0;
+    background:var(--bg-raised); border:1px solid var(--border-hover); color:var(--text); font-weight:600; font-size:13px;
+    padding:11px 20px; border-radius:9px; box-shadow:0 8px 26px rgba(0,0,0,0.5); transition:all .3s; z-index:50; pointer-events:none; max-width:90vw; text-align:center; font-family:'JetBrains Mono',monospace; }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  @media(max-width:640px){ .nav-tabs{ order:3; width:100%; justify-content:center; } .header-actions{ order:4; width:100%; justify-content:center; } .search-box{ max-width:100%; } }
+</style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="bg-grid-glow"></div>
+<div class="bg-orb"></div>
+
+<div class="wrap">
+
+  <div class="topbar">
+    <header>
+      <div class="logo" id="logoBtn" title="click me">
+        <div class="logo-prompt">fixtures<span class="cursor"></span></div>
+      </div>
+      <div class="nav-tabs" id="navTabs">
+        <button class="tab-btn active" data-filter="all">all</button>
+        <button class="tab-btn" data-filter="football">football</button>
+        <button class="tab-btn" data-filter="f1">f1</button>
+        <button class="tab-btn" data-filter="ufc">ufc</button>
+        <button class="tab-btn" data-filter="live">live</button>
+      </div>
+      <div class="header-actions">
+        <button id="refreshBtn"><span class="spin-icon">↻</span> refresh</button>
+        <button id="asciiBtn">ascii: <span id="asciiState">off</span></button>
+        <button id="cmdkBtn">⌘K</button>
+        <button id="adminBtn">admin: <span id="adminState">off</span></button>
+      </div>
+    </header>
+  </div>
+
+  <div class="search-row">
+    <div class="search-box">
+      <svg class="search-icon" width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M11.5 11.5L15 15M13 7A6 6 0 1 1 1 7a6 6 0 0 1 12 0Z" stroke="currentColor" stroke-width="1.4"/></svg>
+      <input type="text" id="searchInput" placeholder="Search fixtures — team, league, venue…" autocomplete="off">
+      <span class="search-kbd" id="searchKbd">/</span>
+    </div>
+  </div>
+
+  <div class="boot-line" id="bootLine"></div>
+  <div class="status-bar" id="statusBar" style="display:none;">
+    <span class="status-dot" id="statusDot"></span>
+    <span id="statusText"></span>
+  </div>
+
+  <div class="error-banner info" id="protoBanner"></div>
+  <div class="error-banner" id="errorBanner"></div>
+
+  <div class="hero" id="hero">
+    <div class="skeleton" style="width:130px;height:11px;margin-bottom:14px;"></div>
+    <div class="skeleton" style="width:55%;height:22px;margin-bottom:10px;"></div>
+    <div class="skeleton" style="width:35%;height:12px;margin-bottom:20px;"></div>
+    <div class="skeleton" style="width:100%;height:64px;"></div>
+  </div>
+
+  <div class="section-head"><h2>★ featured</h2><span class="count" id="featCount"></span></div>
+  <div class="rail" id="featuredRail"><div class="empty-state">loading…</div></div>
+
+  <div class="section-head"><h2># all fixtures</h2><span class="count" id="gridCount"></span></div>
+  <div class="grid" id="grid"></div>
+
+  <footer>
+    live data via <a href="https://www.espn.com/soccer/" target="_blank">ESPN soccer scoreboard</a> (world cup, prem, la liga, bundesliga, serie a, ligue 1, ucl),
+    <a href="https://openf1.org/" target="_blank">openf1</a> (f1 calendar + live sessions), and <a href="https://www.espn.com/mma/" target="_blank">ESPN mma scoreboard</a> (ufc) — all free, no api key.<br>
+    auto-refreshes every 45s · press <span class="mono">/</span> to search · <span class="mono">⌘K</span> for commands
+  </footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="cmdk-overlay" id="cmdkOverlay">
+  <div class="cmdk-box">
+    <div class="cmdk-input-row">
+      <span class="cmdk-prompt">&gt;</span>
+      <input type="text" id="cmdkInput" placeholder="pin arsenal, filter ufc, ascii on, refresh…" autocomplete="off">
+    </div>
+    <div class="cmdk-hints" id="cmdkHints"></div>
+    <div class="cmdk-footer">enter to run · esc to close</div>
+  </div>
+</div>
+
+<script>
+/* ======================================================================
+   Fixtures — real data, no API key required.
+   Football: ESPN's public scoreboard endpoint (site.api.espn.com)
+   F1:       OpenF1 (api.openf1.org) — fully open, CORS-enabled by design
+   UFC:      ESPN's public mma/ufc scoreboard endpoint
+   ====================================================================== */
+
+const FOOTBALL_LEAGUES = [
+  { slug:'fifa.world',     label:'FIFA World Cup',   dated:true  },
+  { slug:'uefa.champions', label:'Champions League', dated:false },
+  { slug:'eng.1',          label:'Premier League',   dated:false },
+  { slug:'esp.1',          label:'La Liga',          dated:false },
+  { slug:'ger.1',          label:'Bundesliga',       dated:false },
+  { slug:'ita.1',          label:'Serie A',          dated:false },
+  { slug:'fra.1',          label:'Ligue 1',          dated:false },
+];
+
+let events = [];
+let adminMode = false;
+let asciiMode = false;
+let currentFilter = 'all';
+let searchTerm = '';
+let pinnedIds = loadPinned();
+let lastFetchOk = 0, lastFetchErr = 0;
+let prevScoreMap = {};
+let flashIds = new Set();
+
+const GLOBE_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.3" stroke="currentColor" stroke-width="1.1"/><ellipse cx="8" cy="8" rx="6.3" ry="2.6" stroke="currentColor" stroke-width="1.1"/><ellipse cx="8" cy="8" rx="2.6" ry="6.3" stroke="currentColor" stroke-width="1.1"/><line x1="1.7" y1="8" x2="14.3" y2="8" stroke="currentColor" stroke-width="1.1"/></svg>';
+
+const STATIC_CMDS = [
+  { cmd:'pin <team>',    desc:'pin a fixture matching text', fill:'pin ' },
+  { cmd:'unpin <team>',  desc:'unpin a fixture matching text', fill:'unpin ' },
+  { cmd:'filter <all|football|f1|ufc|live>', desc:'switch the tab filter', fill:'filter ' },
+  { cmd:'search <term>', desc:'search fixtures', fill:'search ' },
+  { cmd:'admin on|off',  desc:'toggle admin mode', fill:'admin ' },
+  { cmd:'ascii on|off',  desc:'toggle ascii scoreboard mode', fill:'ascii ' },
+  { cmd:'refresh',       desc:'refresh live data now', fill:'refresh' },
+];
+
+/* ============ STORAGE ============ */
+function loadPinned(){
+  try{ return new Set(JSON.parse(localStorage.getItem('fixtures_pins') || '[]')); }
+  catch(e){ return new Set(); }
+}
+function savePinned(){
+  try{ localStorage.setItem('fixtures_pins', JSON.stringify([...pinnedIds])); } catch(e){}
+}
+
+/* ============ DATE HELPERS ============ */
+function ymd(offsetDays){
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+}
+function timeParts(target){
+  let diff = new Date(target) - new Date();
+  if(diff < 0) diff = 0;
+  const d = Math.floor(diff / 86400000), h = Math.floor((diff % 86400000) / 3600000);
+  const m = Math.floor((diff % 3600000) / 60000), s = Math.floor((diff % 60000) / 1000);
+  return {d,h,m,s};
+}
+function pad(n){ return String(n).padStart(2,'0'); }
+function fmtDate(iso){ return new Date(iso).toLocaleString(undefined, { weekday:'short', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function highlight(text, term){
+  if(!term) return esc(text);
+  const t = esc(text); const idx = t.toLowerCase().indexOf(term.toLowerCase());
+  if(idx === -1) return t;
+  return t.slice(0,idx) + '<mark>' + t.slice(idx, idx+term.length) + '</mark>' + t.slice(idx+term.length);
+}
+function searchGame(id){
+  const ev = events.find(e=>e.id===id); if(!ev) return;
+  const q = ev.sport === 'f1' ? `F1 2026 ${ev.title} ${ev.comp||''}`
+    : ev.sport === 'ufc' ? `UFC 2026 ${ev.title}`
+    : `${ev.title} ${ev.league}`;
+  window.open('https://www.google.com/search?q=' + encodeURIComponent(q), '_blank', 'noopener');
+}
+function sportBadgeClass(sport){ return sport === 'f1' ? 'f1' : sport === 'ufc' ? 'ufc' : 'football'; }
+
+/* ============ ASCII SCOREBOARD HELPERS ============ */
+const ASCII_W = 30;
+function padRight(str, width){ str = String(str); if(str.length > width) str = str.slice(0, width-1) + '…'; return str + ' '.repeat(Math.max(0, width-str.length)); }
+function padCenter(str, width){ str = String(str); if(str.length > width) str = str.slice(0, width-1) + '…';
+  const total = width - str.length, left = Math.floor(total/2), right = total-left; return ' '.repeat(left) + str + ' '.repeat(right); }
+function asciiCountdownStr(t){ return `${pad(Math.min(t.d,99))}d ${pad(t.h)}h ${pad(t.m)}m ${pad(t.s)}s`; }
+function asciiMiddle(ev){
+  if(ev.status === 'live'){
+    const l1 = ev.sport === 'football'
+      ? padCenter(`${ev.a}  ${ev.scoreA} - ${ev.scoreB}  ${ev.b}`, ASCII_W)
+      : padCenter(esc(ev.title), ASCII_W);
+    const liveTxt = padCenter('● LIVE', ASCII_W);
+    const l2 = liveTxt.replace('● LIVE', '<span class="ascii-live-blink">● LIVE</span>');
+    const l3 = padCenter(esc(ev.clock || ev.league || ''), ASCII_W);
+    return `<pre class="ascii-pre"><span class="hl">${padRight(l1,ASCII_W)}</span>\n${l2}\n${l3}</pre>`;
+  }
+  if(ev.status === 'finished'){
+    const l1 = padCenter(esc(ev.title), ASCII_W);
+    const l2 = padCenter(ev.sport === 'football' ? `FINAL   ${ev.scoreA} - ${ev.scoreB}` : 'COMPLETE', ASCII_W);
+    const l3 = padCenter(esc(ev.league), ASCII_W);
+    return `<pre class="ascii-pre">${l1}\n<span class="hl">${l2}</span>\n${l3}</pre>`;
+  }
+  // upcoming
+  const t = timeParts(ev.start);
+  const cdStr = asciiCountdownStr(t);
+  const l1 = padCenter(esc(ev.title), ASCII_W);
+  const rawL2 = padCenter('starts in  ' + cdStr, ASCII_W);
+  const l2 = rawL2.replace(cdStr, `<span class="hl ascii-countdown" data-start="${ev.start}">${cdStr}</span>`);
+  const l3 = padCenter(esc(ev.league), ASCII_W);
+  return `<pre class="ascii-pre">${l1}\n${l2}\n${l3}</pre>`;
+}
+
+/* ============ TERMINAL BOOT LINE ============ */
+function typeLine(el, text, speed){
+  return new Promise(resolve=>{
+    el.innerHTML = '';
+    let i = 0;
+    const span = document.createElement('span');
+    el.appendChild(span);
+    const cursor = document.createElement('span');
+    cursor.className = 'cursor';
+    el.appendChild(cursor);
+    const t = setInterval(()=>{
+      span.textContent = text.slice(0, ++i);
+      if(i >= text.length){ clearInterval(t); resolve(); }
+    }, speed || 14);
+  });
+}
+
+/* ============ FETCH: FOOTBALL (ESPN) ============ */
+async function fetchJson(url){
+  const res = await fetch(url);
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+function normalizeEspnEvent(e, leagueLabel){
+  const comp = e.competitions && e.competitions[0];
+  if(!comp) return null;
+  const home = comp.competitors.find(c=>c.homeAway==='home') || comp.competitors[0];
+  const away = comp.competitors.find(c=>c.homeAway==='away') || comp.competitors[1];
+  const state = comp.status.type.state; // pre | in | post
+  return {
+    id: 'fb-' + e.id,
+    sport: 'football',
+    league: leagueLabel,
+    title: `${home.team.shortDisplayName || home.team.name} vs ${away.team.shortDisplayName || away.team.name}`,
+    start: e.date,
+    status: state === 'pre' ? 'upcoming' : state === 'in' ? 'live' : 'finished',
+    scoreA: home.score, scoreB: away.score,
+    clock: comp.status.type.shortDetail || comp.status.type.detail || '',
+    venue: (comp.venue && comp.venue.fullName) || '',
+    a: (home.team.abbreviation || home.team.shortDisplayName || '?').slice(0,3).toUpperCase(),
+    b: (away.team.abbreviation || away.team.shortDisplayName || '?').slice(0,3).toUpperCase(),
+  };
+}
+
+async function fetchFootball(){
+  const out = [];
+  const offSeasonNotes = [];
+  await Promise.all(FOOTBALL_LEAGUES.map(async src => {
+    try{
+      if(src.dated){
+        const dates = [];
+        for(let i=-3;i<=5;i++) dates.push(ymd(i));
+        const results = await Promise.all(dates.map(d =>
+          fetchJson(`https://site.api.espn.com/apis/site/v2/sports/soccer/${src.slug}/scoreboard?dates=${d}`).catch(()=>null)
+        ));
+        // if every single dated request failed (e.g. blocked by the browser), treat the whole source as unavailable
+        // instead of silently reporting "ok" with zero events
+        if(results.every(r => r === null)) throw new Error('all dated requests failed');
+        results.forEach(r => {
+          if(r && Array.isArray(r.events)) {
+            r.events.forEach(e => { const n = normalizeEspnEvent(e, src.label); if(n) out.push(n); });
+          }
+        });
+      } else {
+        const r = await fetchJson(`https://site.api.espn.com/apis/site/v2/sports/soccer/${src.slug}/scoreboard`);
+        if(r && Array.isArray(r.events) && r.events.length){
+          r.events.forEach(e => { const n = normalizeEspnEvent(e, src.label); if(n) out.push(n); });
+        } else if(r && r.leagues && r.leagues[0] && r.leagues[0].season && r.leagues[0].season.startDate){
+          offSeasonNotes.push({ id:'off-'+src.slug, sport:'football', status:'offseason', league:src.label,
+            title:`${src.label} — no fixtures right now`, note:`Season starts ${new Date(r.leagues[0].season.startDate).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}` });
+        }
+      }
+      lastFetchOk++;
+    } catch(err){ lastFetchErr++; console.warn('football source failed:', src.slug, err); }
+  }));
+  const seen = new Set(); const deduped = [];
+  out.forEach(e => { if(!seen.has(e.id)){ seen.add(e.id); deduped.push(e); } });
+  return deduped.concat(offSeasonNotes);
+}
+
+/* ============ FETCH: F1 (OpenF1) ============ */
+async function fetchF1(){
+  try{
+    const sessions = await fetchJson('https://api.openf1.org/v1/sessions?year=2026');
+    lastFetchOk++;
+    const now = new Date();
+    // OpenF1 returns the whole season (Feb-Dec). Football fixtures are scoped to a roughly
+    // 1-2 week window, so mirror that here — otherwise months of stale/far-future F1 sessions
+    // drown out the handful of near-term football fixtures in the feed.
+    const RECENT_MS = 7 * 86400000, UPCOMING_MS = 21 * 86400000;
+    return sessions
+      .filter(s => !s.is_cancelled)
+      .map(s => {
+        const start = new Date(s.date_start), end = new Date(s.date_end);
+        let status = 'upcoming';
+        if(now >= start && now <= end) status = 'live';
+        else if(now > end) status = 'finished';
+        return {
+          id: 'f1-' + s.session_key,
+          sport: 'f1',
+          league: 'Formula 1',
+          title: `${s.circuit_short_name} — ${s.session_name}`,
+          comp: `${s.country_name} · ${s.session_type}`,
+          start: s.date_start,
+          status,
+          venue: s.location,
+          a: 'F1', b: null,
+        };
+      })
+      .filter(e => {
+        const start = new Date(e.start);
+        if(e.status === 'live') return true;
+        if(e.status === 'upcoming') return start - now <= UPCOMING_MS;
+        return now - start <= RECENT_MS; // finished
+      });
+  } catch(err){
+    lastFetchErr++; console.warn('F1 fetch failed', err);
+    return [];
+  }
+}
+
+/* ============ FETCH: UFC (ESPN MMA) ============ */
+function normalizeUfcEvent(e){
+  const st = e.status && e.status.type;
+  const state = st ? st.state : 'pre';
+  return {
+    id: 'ufc-' + e.id,
+    sport: 'ufc',
+    league: 'UFC',
+    title: e.name || e.shortName || 'UFC Event',
+    start: e.date,
+    status: state === 'pre' ? 'upcoming' : state === 'in' ? 'live' : 'finished',
+    clock: st ? (st.shortDetail || st.detail || '') : '',
+    venue: (e.venues && e.venues[0] && e.venues[0].fullName) || '',
+    a: 'UFC', b: null,
+  };
+}
+
+async function fetchUFC(){
+  try{
+    const dates = [];
+    for(let i=-3; i<=14; i++) dates.push(ymd(i));
+    const results = await Promise.all(dates.map(d =>
+      fetchJson(`https://site.api.espn.com/apis/site/v2/sports/mma/ufc/scoreboard?dates=${d}`).catch(()=>null)
+    ));
+    if(results.every(r => r === null)) throw new Error('all dated requests failed');
+    lastFetchOk++;
+    const out = [];
+    results.forEach(r => {
+      if(r && Array.isArray(r.events)) r.events.forEach(e => out.push(normalizeUfcEvent(e)));
+    });
+    const seen = new Set(); const deduped = [];
+    out.forEach(e => { if(!seen.has(e.id)){ seen.add(e.id); deduped.push(e); } });
+    return deduped;
+  } catch(err){
+    lastFetchErr++; console.warn('UFC fetch failed', err);
+    return [];
+  }
+}
+
+/* ============ MAIN LOAD ============ */
+async function loadAll(showToastMsg, isFirst){
+  document.getElementById('refreshBtn').classList.add('spinning');
+  const bootLine = document.getElementById('bootLine');
+  if(isFirst) await typeLine(bootLine, '> pulling live fixtures from espn + openf1...', 12);
+  else { document.getElementById('statusDot').className = 'status-dot loading'; document.getElementById('statusText').textContent = 'refreshing…'; }
+
+  lastFetchOk = 0; lastFetchErr = 0;
+  try{
+    const [football, f1, ufc] = await Promise.all([fetchFootball(), fetchF1(), fetchUFC()]);
+    events = [...football, ...f1, ...ufc];
+    events.forEach(e => { if(pinnedIds.has(e.id)) e.pinned = true; });
+
+    // detect goal/score changes since the last poll, for the flash + bounce animation
+    const newFlash = new Set();
+    events.forEach(e => {
+      if(e.sport === 'football' && e.status === 'live'){
+        const key = e.id, scoreStr = `${e.scoreA}-${e.scoreB}`;
+        if(prevScoreMap[key] !== undefined && prevScoreMap[key] !== scoreStr) newFlash.add(key);
+        prevScoreMap[key] = scoreStr;
+      }
+    });
+    flashIds = newFlash;
+
+    const errBanner = document.getElementById('errorBanner');
+    if(lastFetchOk === 0 && lastFetchErr > 0){
+      errBanner.classList.add('show');
+      errBanner.innerHTML = `ERR_BLOCKED_BY_BROWSER — file:// pages don't get to make outbound calls, nice try. run <code>python3 -m http.server</code> in this folder, then open <code>http://localhost:8000/Fixtures.html</code>.`;
+    } else {
+      errBanner.classList.remove('show');
+    }
+
+    if(isFirst){ bootLine.style.display = 'none'; document.getElementById('statusBar').style.display = 'flex'; }
+    document.getElementById('statusDot').className = 'status-dot';
+    document.getElementById('statusText').textContent =
+      `live · ${lastFetchOk} source${lastFetchOk===1?'':'s'} ok${lastFetchErr?`, ${lastFetchErr} unavailable`:''} · updated ${new Date().toLocaleTimeString()}`;
+    renderAll();
+    if(showToastMsg) showToast(showToastMsg);
+  } catch(err){
+    if(isFirst){ bootLine.style.display = 'none'; document.getElementById('statusBar').style.display = 'flex'; }
+    document.getElementById('statusDot').className = 'status-dot err';
+    document.getElementById('statusText').textContent = 'failed to load live data';
+    const errBanner = document.getElementById('errorBanner');
+    errBanner.classList.add('show');
+    errBanner.innerHTML = `⚠ live data failed to load: ${esc(err.message)}. try refresh, or serve this file over <code>http://localhost</code> instead of opening it directly.`;
+  }
+  document.getElementById('refreshBtn').classList.remove('spinning');
+}
+
+/* ============ RENDER ============ */
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._timer); t._timer = setTimeout(()=> t.classList.remove('show'), 2200);
+}
+
+function togglePin(id){
+  const ev = events.find(e=>e.id===id);
+  if(!ev) return;
+  ev.pinned = !ev.pinned;
+  if(ev.pinned) pinnedIds.add(id); else pinnedIds.delete(id);
+  savePinned();
+  showToast(ev.pinned ? `pinned: ${ev.title}` : `unpinned: ${ev.title}`);
+  renderAll();
+}
+
+function renderHero(){
+  const hero = document.getElementById('hero');
+  const real = events.filter(e => e.status === 'live' || e.status === 'upcoming');
+  const live = real.find(e => e.status === 'live');
+  const upcoming = real.filter(e => e.status === 'upcoming').sort((a,b)=> new Date(a.start)-new Date(b.start))[0];
+  const focus = live || upcoming;
+
+  if(!focus){
+    hero.innerHTML = `<div class="hero-label">up next</div><div class="hero-title">no upcoming fixtures found</div>
+      <div class="hero-sub">leagues may be between seasons — check the fixtures below for season start dates.</div>`;
+    return;
+  }
+  if(focus.status === 'live'){
+    const scoreTxt = focus.sport === 'football' ? `${focus.scoreA} - ${focus.scoreB}` : 'in progress';
+    hero.innerHTML = `
+      <div class="hero-label"><span class="dot-live"></span> live right now</div>
+      <div class="hero-title">${esc(focus.title)}</div>
+      <div class="hero-sub">${esc(focus.league)}${focus.venue ? ' · ' + esc(focus.venue) : ''}</div>
+      <div class="live-banner">${scoreTxt} ${focus.clock ? `<span style="opacity:.6;font-weight:500;font-size:12px;">— ${esc(focus.clock)}</span>` : ''}</div>
+    `;
+  } else {
+    const t = timeParts(focus.start);
+    hero.innerHTML = `
+      <div class="hero-label">up next</div>
+      <div class="hero-title">${esc(focus.title)}</div>
+      <div class="hero-sub">${esc(focus.league)} · ${fmtDate(focus.start)}</div>
+      <div class="countdown-row" id="heroCountdown" data-start="${focus.start}">
+        <div class="cbox"><div class="num mono">${pad(t.d)}</div><div class="lbl">days</div></div>
+        <div class="cbox"><div class="num mono">${pad(t.h)}</div><div class="lbl">hrs</div></div>
+        <div class="cbox"><div class="num mono">${pad(t.m)}</div><div class="lbl">min</div></div>
+        <div class="cbox"><div class="num mono">${pad(t.s)}</div><div class="lbl">sec</div></div>
+      </div>`;
+  }
+}
+
+function renderFeatured(){
+  const rail = document.getElementById('featuredRail');
+  const pinned = events.filter(e => e.pinned).sort((a,b)=> new Date(a.start||0) - new Date(b.start||0));
+  document.getElementById('featCount').textContent = `${pinned.length} pinned`;
+  if(pinned.length === 0){
+    rail.innerHTML = `<div class="empty-state">no pinned fixtures — enable admin mode and pin one below.</div>`;
+    return;
+  }
+  rail.innerHTML = pinned.map(ev => {
+    let body;
+    if(ev.status === 'live'){
+      const scoreTxt = ev.sport === 'football' ? `${ev.scoreA} - ${ev.scoreB}` : 'live';
+      body = `<div class="live-banner${flashIds.has(ev.id)?' bounce':''}" style="font-size:14px;padding:7px 12px;">${scoreTxt}</div>`;
+    } else {
+      const t = timeParts(ev.start);
+      body = `<div class="card-countdown" data-start="${ev.start}">
+        <div class="mini-box"><div class="num mono">${pad(t.d)}</div><div class="lbl">d</div></div>
+        <div class="mini-box"><div class="num mono">${pad(t.h)}</div><div class="lbl">h</div></div>
+        <div class="mini-box"><div class="num mono">${pad(t.m)}</div><div class="lbl">m</div></div>
+        <div class="mini-box"><div class="num mono">${pad(t.s)}</div><div class="lbl">s</div></div>
+      </div>`;
+    }
+    return `<div class="feat-card">
+      <span class="pin-star">★</span>
+      <div class="badge ${sportBadgeClass(ev.sport)}" style="margin-bottom:9px;">${esc(ev.league)}</div>
+      <div class="teams">${esc(ev.title)}</div>
+      ${body}
+    </div>`;
+  }).join('');
+}
+
+function renderGrid(){
+  const grid = document.getElementById('grid');
+  let list = events.slice();
+  if(currentFilter === 'football') list = list.filter(e=>e.sport==='football');
+  if(currentFilter === 'f1') list = list.filter(e=>e.sport==='f1');
+  if(currentFilter === 'ufc') list = list.filter(e=>e.sport==='ufc');
+  if(currentFilter === 'live') list = list.filter(e=>e.status==='live');
+
+  if(searchTerm){
+    const q = searchTerm.toLowerCase();
+    list = list.filter(e =>
+      (e.title && e.title.toLowerCase().includes(q)) ||
+      (e.league && e.league.toLowerCase().includes(q)) ||
+      (e.venue && e.venue.toLowerCase().includes(q)) ||
+      (e.comp && e.comp.toLowerCase().includes(q))
+    );
+  }
+
+  const rank = s => s==='live' ? 0 : s==='upcoming' ? 1 : s==='finished' ? 2 : 3;
+  list = [...list].sort((a,b)=>{
+    if(rank(a.status) !== rank(b.status)) return rank(a.status)-rank(b.status);
+    return new Date(a.start||0) - new Date(b.start||0);
+  });
+
+  document.getElementById('gridCount').textContent = `${list.length} shown`;
+
+  if(list.length === 0){
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">${searchTerm ? `no fixtures match "${esc(searchTerm)}"` : 'no fixtures match this filter right now'}</div>`;
+    return;
+  }
+
+  grid.innerHTML = list.map((ev, idx) => {
+    const delay = `style="animation-delay:${Math.min(idx*35,400)}ms"`;
+    if(ev.status === 'offseason'){
+      return `<div class="card offseason" ${delay}>
+        <div class="card-top"><span class="badge finished">${esc(ev.league)}</span></div>
+        <div class="teams" style="margin-bottom:6px;">no fixtures right now</div>
+        <div class="comp">${esc(ev.note)}</div>
+      </div>`;
+    }
+    let statusBadge;
+    if(ev.status === 'live') statusBadge = `<span class="badge live"><span class="dot-live"></span> live</span>`;
+    else if(ev.status === 'finished') statusBadge = `<span class="badge finished">final</span>`;
+    else statusBadge = `<span class="badge ${sportBadgeClass(ev.sport)}">${esc(ev.league)}</span>`;
+
+    const isFlash = flashIds.has(ev.id);
+    let middle;
+    if(asciiMode){
+      middle = asciiMiddle(ev);
+    } else if(ev.status === 'live'){
+      const scoreTxt = ev.sport === 'football' ? `${ev.scoreA} - ${ev.scoreB}` : 'live';
+      middle = `<div class="score-row"><span class="score mono${isFlash?' bounce':''}">${scoreTxt}</span><span class="meta">${esc(ev.clock || 'in progress')}</span></div>`;
+    } else if(ev.status === 'finished'){
+      const resultTxt = ev.sport === 'football' ? `${ev.scoreA} - ${ev.scoreB}` : 'complete';
+      middle = `<div class="finished-result">final: ${resultTxt}</div><div style="height:11px;"></div>`;
+    } else {
+      const t = timeParts(ev.start);
+      middle = `<div class="card-countdown" data-start="${ev.start}">
+        <div class="mini-box"><div class="num mono">${pad(t.d)}</div><div class="lbl">d</div></div>
+        <div class="mini-box"><div class="num mono">${pad(t.h)}</div><div class="lbl">h</div></div>
+        <div class="mini-box"><div class="num mono">${pad(t.m)}</div><div class="lbl">m</div></div>
+        <div class="mini-box"><div class="num mono">${pad(t.s)}</div><div class="lbl">s</div></div>
+      </div>`;
+    }
+
+    const pinBtnHtml = `<button class="pin-btn ${adminMode?'show':''} ${ev.pinned?'pinned':''}" onclick="togglePin('${ev.id}')">
+        ${ev.pinned ? 'pinned' : 'pin'}
+      </button>`;
+    const staticPin = (!adminMode && ev.pinned) ? `<span class="static-pin">★ featured</span>` : `<span></span>`;
+    const globeBtn = `<button class="globe-btn" title="Search this fixture on Google" onclick="searchGame('${ev.id}')">${GLOBE_SVG}</button>`;
+
+    return `<div class="card sport-${ev.sport}${isFlash?' flash':''}" ${delay}>
+      <div class="card-top">${statusBadge}${adminMode ? pinBtnHtml : staticPin}</div>
+      ${asciiMode ? '' : `<div class="matchup"><div class="avatar">${esc(ev.a)}</div><div class="teams">${highlight(ev.title, searchTerm)}</div></div>
+      <div class="comp">${highlight(ev.comp || ev.venue || '', searchTerm)}</div>`}
+      ${middle}
+      <div class="card-foot"><span>${ev.start ? fmtDate(ev.start) : ''}</span>${globeBtn}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderAll(){ renderHero(); renderFeatured(); renderGrid(); }
+
+/* ============ TICKING COUNTDOWNS ============ */
+setInterval(()=>{
+  document.querySelectorAll('[data-start]').forEach(el=>{
+    const t = timeParts(el.dataset.start);
+    if(el.classList.contains('ascii-countdown')){
+      el.textContent = asciiCountdownStr(t);
+      return;
+    }
+    const nums = el.querySelectorAll('.num');
+    if(nums.length >= 4){
+      nums[0].textContent = pad(t.d); nums[1].textContent = pad(t.h);
+      nums[2].textContent = pad(t.m); nums[3].textContent = pad(t.s);
+    }
+  });
+}, 1000);
+
+/* ============ AUTO REFRESH ============ */
+setInterval(()=> loadAll(), 45000);
+
+/* ============ SHARED STATE SETTERS (used by clicks + command palette) ============ */
+function setFilter(f){
+  if(!['all','football','f1','ufc','live'].includes(f)) return false;
+  currentFilter = f;
+  document.querySelectorAll('.tab-btn').forEach(b=> b.classList.toggle('active', b.dataset.filter === f));
+  renderGrid();
+  return true;
+}
+function setAdmin(on){
+  adminMode = on;
+  document.getElementById('adminBtn').classList.toggle('on', adminMode);
+  document.getElementById('adminState').textContent = adminMode ? 'on' : 'off';
+  renderGrid();
+}
+function setAscii(on){
+  asciiMode = on;
+  document.getElementById('asciiBtn').classList.toggle('on', asciiMode);
+  document.getElementById('asciiState').textContent = asciiMode ? 'on' : 'off';
+  renderGrid();
+}
+function findEventByQuery(q){
+  if(!q) return null;
+  const ql = q.trim().toLowerCase();
+  if(!ql) return null;
+  return events.find(e => e.status !== 'offseason' && e.title && e.title.toLowerCase().includes(ql))
+      || events.find(e => e.status !== 'offseason' && e.league && e.league.toLowerCase().includes(ql));
+}
+
+/* ============ INTERACTIONS ============ */
+document.getElementById('navTabs').addEventListener('click', e=>{
+  const btn = e.target.closest('.tab-btn'); if(!btn) return;
+  setFilter(btn.dataset.filter);
+});
+document.getElementById('adminBtn').addEventListener('click', ()=>{
+  setAdmin(!adminMode);
+  showToast(adminMode ? 'admin mode on — click pin on any card' : 'admin mode off');
+});
+document.getElementById('asciiBtn').addEventListener('click', ()=>{
+  setAscii(!asciiMode);
+  showToast(asciiMode ? 'ascii scoreboard mode on' : 'ascii scoreboard mode off');
+});
+document.getElementById('refreshBtn').addEventListener('click', ()=> loadAll('refreshed'));
+
+const searchInput = document.getElementById('searchInput');
+searchInput.addEventListener('input', e=>{ searchTerm = e.target.value.trim(); renderGrid(); });
+
+/* ============ COMMAND PALETTE ============ */
+const cmdkOverlay = document.getElementById('cmdkOverlay');
+const cmdkInput = document.getElementById('cmdkInput');
+const cmdkHints = document.getElementById('cmdkHints');
+let cmdkOpen = false;
+
+function openCmdk(){
+  cmdkOpen = true; cmdkOverlay.classList.add('show'); cmdkInput.value = '';
+  renderCmdkHints(); setTimeout(()=> cmdkInput.focus(), 10);
+}
+function closeCmdk(){ cmdkOpen = false; cmdkOverlay.classList.remove('show'); }
+
+function renderCmdkHints(){
+  const q = cmdkInput.value.trim();
+  if(!q){
+    cmdkHints.innerHTML = STATIC_CMDS.map(c => `<div class="cmdk-hint" data-fill="${esc(c.fill)}">${esc(c.cmd)}<span class="tag">${esc(c.desc)}</span></div>`).join('');
+    return;
+  }
+  const cmdMatch = q.match(/^(pin|unpin|filter|search|find|admin|ascii|refresh)\b/i);
+  if(cmdMatch){
+    cmdkHints.innerHTML = `<div class="cmdk-hint" style="opacity:.65;cursor:default;">press enter to run <span class="tag">${esc(q)}</span></div>`;
+    return;
+  }
+  const ql = q.toLowerCase();
+  const matches = events.filter(e => e.status !== 'offseason' &&
+    ((e.title && e.title.toLowerCase().includes(ql)) || (e.league && e.league.toLowerCase().includes(ql)))).slice(0,6);
+  if(matches.length === 0){
+    cmdkHints.innerHTML = `<div class="cmdk-hint" style="opacity:.65;cursor:default;">no matches — press enter to search "${esc(q)}"</div>`;
+    return;
+  }
+  cmdkHints.innerHTML = matches.map(e => `<div class="cmdk-hint" data-pin="${e.id}">${esc(e.title)}<span class="tag">${e.pinned ? 'pinned · click to unpin' : 'click to pin'}</span></div>`).join('');
+}
+
+function cmdkExecute(raw){
+  const input = raw.trim();
+  if(!input) return;
+  const m = input.match(/^(pin|unpin|filter|search|find|admin|ascii|refresh)\b\s*(.*)$/i);
+  if(m){
+    const cmd = m[1].toLowerCase(), arg = m[2].trim();
+    if(cmd === 'pin' || cmd === 'unpin'){
+      const match = findEventByQuery(arg);
+      if(match){
+        if(cmd === 'pin' && !match.pinned) togglePin(match.id);
+        else if(cmd === 'unpin' && match.pinned) togglePin(match.id);
+        else showToast(`${match.title} is already ${cmd === 'pin' ? 'pinned' : 'unpinned'}`);
+      } else showToast(`no fixture matching "${arg}"`);
+    } else if(cmd === 'filter'){
+      if(!setFilter(arg.toLowerCase())) showToast('filter: all | football | f1 | ufc | live');
+    } else if(cmd === 'search' || cmd === 'find'){
+      searchInput.value = arg; searchTerm = arg; renderGrid();
+    } else if(cmd === 'admin'){
+      setAdmin(arg ? /^on/i.test(arg) : !adminMode);
+      showToast(adminMode ? 'admin mode on' : 'admin mode off');
+    } else if(cmd === 'ascii'){
+      setAscii(arg ? /^on/i.test(arg) : !asciiMode);
+      showToast(asciiMode ? 'ascii scoreboard mode on' : 'ascii scoreboard mode off');
+    } else if(cmd === 'refresh'){
+      loadAll('refreshed');
+    }
+  } else {
+    const match = findEventByQuery(input);
+    if(match){
+      togglePin(match.id);
+    } else {
+      searchInput.value = input; searchTerm = input; setFilter('all');
+    }
+  }
+  closeCmdk();
+}
+
+cmdkInput.addEventListener('input', renderCmdkHints);
+cmdkInput.addEventListener('keydown', e=>{
+  if(e.key === 'Enter'){ cmdkExecute(cmdkInput.value); }
+  else if(e.key === 'Escape'){ closeCmdk(); }
+});
+cmdkHints.addEventListener('click', e=>{
+  const el = e.target.closest('.cmdk-hint'); if(!el) return;
+  if(el.dataset.pin){ togglePin(el.dataset.pin); closeCmdk(); }
+  else if(el.dataset.fill !== undefined){ cmdkInput.value = el.dataset.fill; cmdkInput.focus(); renderCmdkHints(); }
+});
+cmdkOverlay.addEventListener('click', e=>{ if(e.target === cmdkOverlay) closeCmdk(); });
+document.getElementById('cmdkBtn').addEventListener('click', openCmdk);
+
+document.addEventListener('keydown', e=>{
+  const meta = e.metaKey || e.ctrlKey;
+  if(meta && e.key.toLowerCase() === 'k'){
+    e.preventDefault(); cmdkOpen ? closeCmdk() : openCmdk(); return;
+  }
+  if(cmdkOpen) return; // let the palette's own handler deal with typing/escape
+  if(e.key === '/' && document.activeElement !== searchInput){
+    e.preventDefault(); searchInput.focus();
+  } else if(e.key === 'Escape' && document.activeElement === searchInput){
+    searchInput.value = ''; searchTerm = ''; renderGrid(); searchInput.blur();
+  }
+});
+
+document.getElementById('logoBtn').addEventListener('click', ()=>{
+  const emojis = ['⚡','🏆','🏎️','⚽','🥊','✨'];
+  for(let i=0;i<10;i++){
+    const e = document.createElement('div');
+    e.textContent = emojis[Math.floor(Math.random()*emojis.length)];
+    e.style.position = 'fixed'; e.style.left = '20px'; e.style.top = '26px';
+    e.style.fontSize = (16 + Math.random()*18) + 'px'; e.style.pointerEvents = 'none'; e.style.zIndex = 99;
+    e.style.transition = 'all 0.9s cubic-bezier(.2,.8,.2,1)';
+    document.body.appendChild(e);
+    requestAnimationFrame(()=>{
+      const ang = Math.random()*Math.PI*2, dist = 70+Math.random()*80;
+      e.style.left = (20 + Math.cos(ang)*dist) + 'px'; e.style.top = (26 + Math.sin(ang)*dist) + 'px';
+      e.style.opacity = '0'; e.style.transform = 'scale(1.6) rotate(' + (Math.random()*180) + 'deg)';
+    });
+    setTimeout(()=> e.remove(), 950);
+  }
+});
+
+/* ============ FILE:// PROTOCOL NOTICE ============ */
+function checkFileProtocol(){
+  if(location.protocol !== 'file:') return;
+  const banner = document.getElementById('protoBanner');
+  banner.classList.add('show');
+  banner.innerHTML = `get your fixtures here- Ctrl + K for dev<br>
+    <code id="serveCmd">AM is the GOAT</code> <button class="copy-btn" id="copyServeCmd">copy</button><br>
+    `;
+  document.getElementById('copyServeCmd').addEventListener('click', ()=>{
+    const text = document.getElementById('serveCmd').textContent;
+    if(navigator.clipboard) navigator.clipboard.writeText(text).then(()=> showToast('copied — paste it in a terminal'));
+  });
+}
+checkFileProtocol();
+
+/* ============ CURSOR-REACTIVE BACKGROUND ============ */
+(function(){
+  const root = document.documentElement;
+  let mouseX = window.innerWidth / 2, mouseY = window.innerHeight / 3;
+  let curX = mouseX, curY = mouseY;
+  window.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
+  window.addEventListener('touchmove', e => {
+    if(e.touches && e.touches[0]){ mouseX = e.touches[0].clientX; mouseY = e.touches[0].clientY; }
+  }, { passive: true });
+
+  function tick(){
+    curX += (mouseX - curX) * 0.08;
+    curY += (mouseY - curY) * 0.08;
+    root.style.setProperty('--mx', curX + 'px');
+    root.style.setProperty('--my', curY + 'px');
+    const cx = window.innerWidth / 2, cy = window.innerHeight / 2;
+    root.style.setProperty('--ox', ((curX - cx) * 0.12) + 'px');
+    root.style.setProperty('--oy', ((curY - cy) * 0.12) + 'px');
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+})();
+
+loadAll(null, true);
+</script>
+</body>
+</html>
