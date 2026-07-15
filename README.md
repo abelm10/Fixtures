@@ -137,4 +137,3 @@ This project is licensed under the MIT License.
 
 **AM**
 
-Built with ❤️ for sports fans who just want the fixtures.
