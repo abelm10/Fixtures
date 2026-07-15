@@ -24,12 +24,7 @@ A lightweight web application that displays upcoming and live sports fixtures wi
 ---
 
 ## 📸 Preview
-
-<img width="100%" alt="Fixtures Preview" src="preview.png">
-
-> *(Replace `preview.png` with a screenshot of your application.)*
-
----
+<img width="1890" height="906" alt="image" src="https://github.com/user-attachments/assets/f9c9d779-fc65-415d-bec6-fb7a576335ff" />
 
 ## 🚀 Getting Started
 
